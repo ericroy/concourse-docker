@@ -1,0 +1,23 @@
+#!/bin/bash -e
+echo "Initializing the pass store"
+sudo apt install -y gpg pass
+
+mkdir -p ./gpg-home
+chmod 700 ./gpg-home
+
+export GNUPGHOME="./gpg-home"
+cat >./gpg-home/fookey <<EOF
+     %echo Generating a default key
+     Key-Type: default
+     Subkey-Type: default
+     Name-Real: NoName
+     Name-Comment: None
+     Name-Email: foo@foo.bar
+     Expire-Date: 0
+     Passphrase: password
+     # Do a commit here, so that we can later print "done" :-)
+     %commit
+     %echo done
+EOF
+gpg --batch --generate-key ./gpg-home/fookey
+

@@ -47,9 +47,9 @@ deploy() {
   util.log "Deploy Concourse CI"
   concourse.setup
   # certificates.create_self_signed "${nginx_dir}/secrets" "${host_fqdn}"
-  certificates.setup_letsencrypt "${admin_email}" "${nginx_dir}/secrets" "${sites[@]}"
+  # certificates.setup_letsencrypt "${admin_email}" "${nginx_dir}/secrets" "${sites[@]}"
   registry.setup
-  nginx.setup
+  # nginx.setup
   docker_compose.setup
 
   docker-compose up -d
@@ -69,7 +69,8 @@ deploy() {
 
   # shellcheck disable=SC2154
   cat >"${deployments_dir}/docker_login" <<EOF
-#!/bin/bash -euo pipefail
+#!/bin/bash -e
+set -u -o pipefail
 # Docker registry login script
 docker login "${host_url}" -u "admin" -p "${_password}"
 EOF
@@ -78,7 +79,8 @@ EOF
 
   # shellcheck disable=SC2154
   cat >"${deployments_dir}/ci_login" <<EOF
-#!/bin/bash  -euo pipefail
+#!/bin/bash -e
+set -u -o pipefail
 # Concourse CI login script
 fly -t "${ci_target}" login -u "${ci_username}" -p "${ci_password}" -c "${host_url}"
 EOF
@@ -120,16 +122,26 @@ destroy() {
 
 readonly deployments_dir="${script_dir}/deployments"
 readonly db_dir="${deployments_dir}/db"
-readonly ghost_dir="${deployments_dir}/ghost"
-readonly nginx_dir="${deployments_dir}/nginx"
 readonly registry_dir="${deployments_dir}/registry"
 readonly web_dir="${deployments_dir}/web"
 readonly worker_dir="${deployments_dir}/worker"
-readonly admin_email='doru@rocketmail.com'
-readonly host_fqdn='carastan.com'
-readonly host_url="https://${host_fqdn}"
-readonly sites=("${host_fqdn}" "ci.${host_fqdn}" "git.${host_fqdn}")
+readonly admin_email='foo@bar.com'
+readonly host_fqdn='localhost'
+readonly host_url="http://${host_fqdn}:8080"
+#readonly sites=("${host_fqdn}" "ci.${host_fqdn}" "git.${host_fqdn}")
 readonly ci_target='.'
+
+# Ensure some prereqs are installed
+which jq >/dev/null 2>&1 || (echo "jq is required"; exit 1)
+
+which docker-credential-pass >/dev/null 2>&1 || (echo "docker-credential-pass is required, use the helper script to get it"; exit 1)
+
+if [ ! -f $HOME/.docker/config.json ] || [ "$(cat $HOME/.docker/config.json | jq '.credsStore')" != '"pass"' ]; then
+  echo "You must provide a docker config ($HOME/.docker/config.json) with \"credsStore\" set to \"pass\"."
+  exit 1
+fi
+
+#which gnome-keyring >/dev/null 2>&1 || (echo "gnome-keyring is required"; exit 1)
 
 # Load library modules.
 # shellcheck disable=SC1090

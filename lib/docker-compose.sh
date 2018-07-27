@@ -27,32 +27,10 @@ EOF
 version: '3.1'
 
 networks:
-  blog:
-    driver: bridge
   ci:
     driver: bridge
 
 services:
-  nginx:
-    # An Alpine Nginx build is required. Regular Nginx container Debian builds
-    # are not only bigger, but fail to decrypt docker registry's Bcrypt encoded
-    # htpasswd content.
-    # https://github.com/nginxinc/docker-nginx/issues/29#issuecomment-194817391
-    # https://stackoverflow.com/questions/39636750/docker-registry-v2-with-tls-and-basic-auth-behind-nginx-authentication-error
-    image: nginx:alpine
-    ports:
-    - 443:443
-    networks:
-    - ci
-    - blog
-    links:
-    - ghost
-    - registry
-    - web
-    volumes:
-    - ./deployments/nginx/config:/etc/nginx/conf.d
-    - ./deployments/nginx/secrets:/run/nginx/secrets:ro
-    - ./deployments/registry/secrets:/run/registry/secrets:ro
 
   registry:
     image: registry:2
@@ -71,6 +49,8 @@ services:
 
   web:
     image: concourse/concourse
+    ports:
+    - 8080:8080
     networks:
     - ci
     depends_on:
@@ -119,20 +99,6 @@ services:
       PGDATA: /data
       POSTGRES_USER: "${db_username}"
       POSTGRES_PASSWORD: "${db_password}"
-
-  ghost:
-    image: ghost:alpine
-    restart: always
-    networks:
-    - blog
-    volumes:
-    - ./ghost:/var/lib/ghost/content
-    ports:
-    - 2368:2368
-    environment:
-      GHOST_CONTENT: /var/lib/ghost/content
-      url: "${host_url}/blog/"
-      NODE_ENV: production
 
 EOF
 }
