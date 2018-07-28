@@ -1,0 +1,36 @@
+#!/bin/bash -e
+sudo apt install -y jq pass gnupg2 rng-tools
+
+if [ ! -f /usr/bin/docker-credential-pass ]; then
+  version="0.6.0"
+  wget https://github.com/docker/docker-credential-helpers/releases/download/v$version/docker-credential-pass-v$version-amd64.tar.gz
+  tar -xf docker-credential-pass-v$version-amd64.tar.gz
+  
+  echo "Installing to /usr/bin/docker-credential-pass"
+  sudo mv ./docker-credential-pass /usr/bin
+  sudo chmod 755 /usr/bin/docker-credential-pass
+  sudo chown root:root /usr/bin/docker-credential-pass
+  rm docker-credential-pass-v$version-amd64.tar.gz
+fi
+
+echo "Initializing the pass store"
+cat >genkeybatch <<EOF
+%echo Generating a default key
+%no-protection
+Key-Type: default
+Subkey-Type: default
+Name-Real: concourse-in-a-box
+Expire-Date: 0
+# Do a commit here, so that we can later print "done" :-)
+%commit
+%echo done
+EOF
+
+
+sudo rngd -r /dev/urandom &
+gpg2 --batch --gen-key genkeybatch
+rm genkeybatch
+
+pass init concourse-in-a-box
+
+

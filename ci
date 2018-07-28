@@ -133,8 +133,8 @@ readonly ci_target='.'
 
 # Ensure some prereqs are installed
 which jq >/dev/null 2>&1 || (echo "jq is required"; exit 1)
-
-which docker-credential-pass >/dev/null 2>&1 || (echo "docker-credential-pass is required, use the helper script to get it"; exit 1)
+which pass >/dev/null 2>&1 || (echo "pass is required"; exit 1)
+which docker-credential-pass >/dev/null 2>&1 || (echo "docker-credential-pass is required"; exit 1)
 
 if [ ! -f $HOME/.docker/config.json ] || [ "$(cat $HOME/.docker/config.json | jq '.credsStore')" != '"pass"' ]; then
   echo "You must provide a docker config ($HOME/.docker/config.json) with \"credsStore\" set to \"pass\"."
