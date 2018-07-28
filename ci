@@ -62,7 +62,7 @@ deploy() {
   util.log "Concourse CI v${_version//\"/} is running"
 
   util.log "Downloading fly cli"
-  wget -P "${deployments_dir}" "${host_url}/api/v1/cli?arch=amd64&platform=linux"
+  wget -O "${deployments_dir}/fly" "${host_url}/api/v1/cli?arch=amd64&platform=linux"
   chmod +x "${deployments_dir}/fly"
 
   # Create admin account record, if needed.
@@ -86,7 +86,7 @@ EOF
 #!/bin/bash -e
 set -u -o pipefail
 # Concourse CI login script
-./fly -t "${ci_target}" login -u "${ci_username}" -p "${ci_password}" -c "${host_url}"
+"${deployments_dir}/fly" -t "${ci_target}" login -u "${ci_username}" -p "${ci_password}" -c "${host_url}"
 EOF
   chmod +x "${deployments_dir}/ci_login"
   util.run_preview 'Concourse login:' "${deployments_dir}/ci_login"
