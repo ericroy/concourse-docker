@@ -62,7 +62,7 @@ deploy() {
   util.log "Concourse CI v${_version//\"/} is running"
 
   util.log "Downloading fly cli"
-  wget -P "${deployments_dir}" "${_url}/api/v1/cli?arch=amd64&platform=linux"
+  wget -P "${deployments_dir}" "${host_url}/api/v1/cli?arch=amd64&platform=linux"
   chmod +x "${deployments_dir}/fly"
 
   # Create admin account record, if needed.
