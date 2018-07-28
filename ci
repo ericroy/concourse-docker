@@ -61,6 +61,10 @@ deploy() {
   done
   util.log "Concourse CI v${_version//\"/} is running"
 
+  util.log "Downloading fly cli"
+  wget -P "${deployments_dir}" "${_url}/api/v1/cli?arch=amd64&platform=linux"
+  chmod +x "${deployments_dir}/fly"
+
   # Create admin account record, if needed.
   grep -q 'admin' "${registry_dir}/passwd" 2>/dev/null || \
     registry.add_user 'admin'
@@ -82,7 +86,7 @@ EOF
 #!/bin/bash -e
 set -u -o pipefail
 # Concourse CI login script
-fly -t "${ci_target}" login -u "${ci_username}" -p "${ci_password}" -c "${host_url}"
+./fly -t "${ci_target}" login -u "${ci_username}" -p "${ci_password}" -c "${host_url}"
 EOF
   chmod +x "${deployments_dir}/ci_login"
   util.run_preview 'Concourse login:' "${deployments_dir}/ci_login"
@@ -94,7 +98,7 @@ EOF
     if [ -n "${workers[*]}" ]; then
       util.log "Prune stalled Concourse workers"
       for worker in "${workers[@]}"; do
-        fly -t "${ci_target}" prune-worker -w "${worker}"
+        "${deployments_dir}/fly" -t "${ci_target}" prune-worker -w "${worker}"
       done
       break
     fi
