@@ -22,7 +22,7 @@ usage() {
   cat <<EOF
 $0 - Concourse CI in a box deployment tool
 
-Usage: $0 deploy|destroy|restart|le-cert|ss-cert|add-dr-user
+Usage: $0 deploy|destroy|restart|add-dr-user
 
 Commands:
   up
@@ -33,10 +33,6 @@ Commands:
     Destroys the Concourse cluster and removes configuration and state.
   restart
     Re-deploys the containers. Preserves deployment runtime state.
-  le-cert
-    Creates Let's Encrypt site certificate.
-  ss-cert
-    Create self-signed certificate.
   add-dr-user <user>
     Grant docker registry access for <user>. Requires running platform.
 
@@ -46,10 +42,8 @@ EOF
 deploy() {
   util.log "Deploy Concourse CI"
   concourse.setup
-  # certificates.create_self_signed "${nginx_dir}/secrets" "${host_fqdn}"
-  # certificates.setup_letsencrypt "${admin_email}" "${nginx_dir}/secrets" "${sites[@]}"
   registry.setup
-  # nginx.setup
+  minio.setup
   docker_compose.setup
 
   docker-compose up -d
@@ -62,8 +56,9 @@ deploy() {
   util.log "Concourse CI v${_version//\"/} is running"
 
   util.log "Downloading fly cli"
-  wget -O "${deployments_dir}/fly" "${host_url}/api/v1/cli?arch=amd64&platform=linux"
-  chmod +x "${deployments_dir}/fly"
+  fly="${deployments_dir}/fly"
+  wget -O "${fly}" "${host_url}/api/v1/cli?arch=amd64&platform=linux"
+  chmod +x "${fly}"
 
   # Create admin account record, if needed.
   grep -q 'admin' "${registry_dir}/passwd" 2>/dev/null || \
@@ -86,7 +81,7 @@ EOF
 #!/bin/bash -e
 set -u -o pipefail
 # Concourse CI login script
-"${deployments_dir}/fly" -t "${ci_target}" login -u "${ci_username}" -p "${ci_password}" -c "${host_url}"
+"${fly}" -t "${ci_target}" login -u "${ci_username}" -p "${ci_password}" -c "${host_url}"
 EOF
   chmod +x "${deployments_dir}/ci_login"
   util.run_preview 'Concourse login:' "${deployments_dir}/ci_login"
@@ -94,11 +89,11 @@ EOF
   # Wait a bit so that Concourse can figure out if the workers it knows of
   # are still around. Favor execution speed vs. accuracy.
   for i in $(seq 1 3); do
-    workers=($(fly -t "${ci_target}" workers | grep stalled | cut -d\  -f1))
+    workers=($("${fly}" -t "${ci_target}" workers | grep stalled | cut -d\  -f1))
     if [ -n "${workers[*]}" ]; then
       util.log "Prune stalled Concourse workers"
       for worker in "${workers[@]}"; do
-        "${deployments_dir}/fly" -t "${ci_target}" prune-worker -w "${worker}"
+        "${fly}" -t "${ci_target}" prune-worker -w "${worker}"
       done
       break
     fi
@@ -127,6 +122,7 @@ destroy() {
 readonly deployments_dir="${script_dir}/deployments"
 readonly db_dir="${deployments_dir}/db"
 readonly registry_dir="${deployments_dir}/registry"
+readonly minio_dir="${deployments_dir}/minio"
 readonly web_dir="${deployments_dir}/web"
 readonly worker_dir="${deployments_dir}/worker"
 readonly admin_email='foo@bar.com'
@@ -149,15 +145,13 @@ fi
 
 # Load library modules.
 # shellcheck disable=SC1090
-source "${script_dir}/lib/certificates.sh"
-# shellcheck disable=SC1090
 source "${script_dir}/lib/concourse.sh"
 # shellcheck disable=SC1090
 source "${script_dir}/lib/docker-compose.sh"
 # shellcheck disable=SC1090
-source "${script_dir}/lib/nginx.sh"
-# shellcheck disable=SC1090
 source "${script_dir}/lib/registry.sh"
+# shellcheck disable=SC1090
+source "${script_dir}/lib/minio.sh"
 # shellcheck disable=SC1090
 source "${script_dir}/lib/util.sh"
 
@@ -175,18 +169,6 @@ case "${1:-}" in
   restart)
     destroy
     deploy
-    ;;
-  le-cert)
-    util.log "Let's Encrypt certificate generation and renewal requires the" \
-      "HTTPS port be available. A sudo prompt will be presented to allow the" \
-      "lego tool bind to port 443."
-    # Free up the HTTPS port.
-    destroy
-    # Specify subject alternative names for each service running on this host.
-    certificates.create_letsencrypt "${admin_email}" "${sites[@]}"
-    ;;
-  ss-cert)
-    certificates.create_self_signed "${HOME}/.certs" "${host_fqdn}"
     ;;
   add-dr-user)
     shift

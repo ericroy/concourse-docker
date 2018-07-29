@@ -4,12 +4,15 @@ docker_compose.setup() {
   if [ -f "${deployments_dir}/secrets.sh" ]; then
     util.log "Using ${deployments_dir}/secrets.sh"
   else
+    touch "${deployments_dir}/secrets.sh"
+    chmod 640 "${deployments_dir}/secrets.sh"
     cat >"${deployments_dir}/secrets.sh" <<EOF
 ci_username='admin'
 ci_password='$(util.mkpasswd 8)'
 db_username='concourse'
 db_password='$(util.mkpasswd 16)'
-ghost_password='$(util.mkpasswd 8)'
+minio_access_key='$(util.mkpasswd 24)'
+minio_secret_key='$(util.mkpasswd 64)'
 EOF
   fi
   # shellcheck disable=SC1090
@@ -47,7 +50,24 @@ services:
     - ./deployments/registry/secrets:/run/registry/secrets:ro
     - ./deployments/registry/data:/var/lib/registry
 
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    ports:
+    - 9000:9000
+    networks:
+    - ci
+    command: server /data
+    volumes:
+    - ./deployments/minio/data:/data
+    - ./deployments/minio/config:/root/.minio
+    environment:
+      MINIO_ACCESS_KEY: "${minio_access_key}"
+      MINIO_SECRET_KEY: "${minio_secret_key}"
+
   web:
+    # Service will retry until db comes up
+    restart: unless-stopped
     image: concourse/concourse
     ports:
     - 8080:8080
@@ -60,8 +80,6 @@ services:
     command: web
     volumes:
     - ./deployments/web:/concourse-keys
-    # Service will retry until conocurse-db comes up.
-    restart: unless-stopped
     environment:
       CONCOURSE_BASIC_AUTH_USERNAME: "${ci_username}"
       CONCOURSE_BASIC_AUTH_PASSWORD: "${ci_password}"
@@ -73,14 +91,19 @@ services:
 
   worker:
     image: concourse/concourse
+    restart: unless-stopped
     networks:
     - ci
     # Swarming not possible as workers need to spin out job containers.
     privileged: true
     depends_on:
     - web
+    - registry
+    - minio
     links:
     - web
+    - registry
+    - minio
     volumes:
     - ./deployments/worker:/concourse-keys:ro
     environment:
@@ -90,6 +113,7 @@ services:
   db:
     # 9.5-alpine
     image: postgres:9.5
+    restart: always
     volumes:
     - ./deployments/db/data:/data
     networks:
