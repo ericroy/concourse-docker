@@ -25,5 +25,17 @@ registry.add_user() {
 
 registry.setup() {
   util.log "Setup Docker Registry"
-  mkdir -p "${registry_dir}"/{data,secrets}
+  mkdir -p "${registry_dir}"/{data,secrets,certs}
+
+  util.log "Generating a self-signed certificate"
+  if [ ! -f "${registry_dir}/certs/domain.key" ]; then
+    openssl req \
+      -subj "/CN=registry" \
+      -newkey rsa:4096 -nodes -sha256 -keyout "${registry_dir}/certs/domain.key" \
+      -x509 -days 7305 -out "${registry_dir}/certs/domain.crt"
+
+    #util.log "Configuring docker to trust registry:5000"
+    #sudo mkdir -p "/etc/docker/certs.d/registry:5000"
+    #sudo ln -sf "${deployments_dir}/certs/domain.crt" /etc/docker/certs.d/${host_fqdn}:5000/ca.crt
+  fi
 }

@@ -71,7 +71,7 @@ deploy() {
 #!/bin/bash -e
 set -u -o pipefail
 # Docker registry login script
-docker login "${host_url}" -u "admin" -p "${_password}"
+docker login "${host_fqdn}:5000" -u "admin" -p "${_password}"
 EOF
   chmod +x "${deployments_dir}/docker_login"
   util.run_preview 'Docker registry login:' "${deployments_dir}/docker_login"
@@ -126,7 +126,7 @@ readonly minio_dir="${deployments_dir}/minio"
 readonly web_dir="${deployments_dir}/web"
 readonly worker_dir="${deployments_dir}/worker"
 readonly admin_email='foo@bar.com'
-readonly host_fqdn='localhost'
+readonly host_fqdn='dingomini.local'
 readonly host_url="http://${host_fqdn}:8080"
 #readonly sites=("${host_fqdn}" "ci.${host_fqdn}" "git.${host_fqdn}")
 readonly ci_target='.'
