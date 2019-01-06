@@ -71,7 +71,7 @@ deploy() {
 #!/bin/bash -e
 set -u -o pipefail
 # Docker registry login script
-docker login "${host_fqdn}:5000" -u "admin" -p "${_password}"
+docker login "registry:5000" -u "admin" -p "${_password}"
 EOF
   chmod +x "${deployments_dir}/docker_login"
   util.run_preview 'Docker registry login:' "${deployments_dir}/docker_login"
